@@ -1,3 +1,3 @@
 # flyEx01
 
-- [Notebook](./flyData.html)
+- [Notebook](https://mrae.github.io/flyEx01/)
