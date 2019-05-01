@@ -1,0 +1,140 @@
+---
+title: "Fly Data"
+author: "Jesse Leigh Patsolic"
+date: '`r Sys.Date()`'
+output:
+  html_document:
+    fig_caption: yes
+    fig_height: 8
+    fig_width: 8
+    highlight: pygments
+    number_sections: yes
+    theme: cerulean
+    toc: yes
+    toc_depth: 1
+---
+
+```{r knitOPTS, include=FALSE}
+knitr::opts_chunk$set(dev = "png")
+```
+
+<!--
+### ### INITIAL COMMENTS HERE ###
+###
+### Jesse Leigh Patsolic 
+### 2018 <Jesse.L.Patsolic@alumni.wfu.edu>
+### S.D.G 
+#
+-->
+
+```{r render, eval=FALSE, echo=FALSE}
+## You can build this notebook by running this code block.
+require(rmarkdown)
+require(mbstructure)
+require(rerf)
+require(mclust)
+require(meda)
+require(raster)
+require(irlba)
+set.seed(16661)
+rmarkdown::render("flyData.Rmd")
+system('open flyData.html')
+```
+
+## Setup
+
+```{r, eval = FALSE}
+require(devtools)
+devtools::install_github("youngser/mbstructure")
+```
+
+
+## Data Preparation 
+
+```{r}
+data(MBconnectome)
+```
+
+## Download data
+
+```{r}
+leftA <- read.table("https://raw.githubusercontent.com/neurodata/graspy/graphmodel/graspy/datasets/drosophila/left_adjacency.csv", header = FALSE, sep = " ")
+
+rightA <- read.table("https://raw.githubusercontent.com/neurodata/graspy/graphmodel/graspy/datasets/drosophila/right_adjacency.csv", header = FALSE, sep = " ")
+
+leftLabels <- read.csv("https://raw.githubusercontent.com/neurodata/graspy/graphmodel/graspy/datasets/drosophila/left_cell_labels.csv", header = FALSE)
+
+rightLabels <- read.csv("https://raw.githubusercontent.com/neurodata/graspy/graphmodel/graspy/datasets/drosophila/right_cell_labels.csv", header = FALSE)
+```
+
+## Embed
+
+```{r}
+X <- as.matrix(rightA)
+Xb <- X
+Xb[which(Xb > 0)] <- 1
+
+GR <- graph_from_adjacency_matrix((Xb))
+Xr <- embed_adjacency_matrix(GR, no = 5)$X
+
+GL <- graph_from_adjacency_matrix((t(Xb)))
+Xl <- embed_adjacency_matrix(GL, no = 5)$X
+
+XX <- cbind(Xl, Xr)
+
+dim(XX)
+```
+
+## Run Urerf
+
+```{r, results = "hide"}
+urerf.fit <- Urerf(XX, trees = 500)
+```
+
+
+## Get Similarity Matrix
+
+```{r}
+simM <- urerf.fit$sim
+write.table(file = "similarityMatrix.csv", simM, row.names = FALSE, col.names = FALSE, sep = ",")
+```
+
+##  Embed the similarity
+
+```{r}
+Y <- irlba(simM, nu = 4)
+```
+
+```{r}
+pairs(Y$u)
+pairs(Y$v)
+```
+
+## Fit Mclust
+
+```{r, results = "hide"}
+m.fit <-  Mclust(Y$u)
+```
+
+## Plot Mclust BIC and Classifications
+
+```{r}
+plot(m.fit, what = c("BIC"))
+plot(m.fit, what = c("classification"))
+```
+
+## ARI
+
+```{r ari}
+mclust::adjustedRandIndex(rightLabels[[1]], m.fit$classification)
+```
+
+
+
+
+<!--
+#   Time:
+##  Working status:
+### Comments:
+--> 
+
