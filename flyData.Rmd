@@ -29,13 +29,15 @@ knitr::opts_chunk$set(dev = "png")
 
 ```{r render, eval=FALSE, echo=FALSE}
 ## You can build this notebook by running this code block.
-source("https://raw.githubusercontent.com/neurodata/meda/master/R/getElbows.R")
 require(rmarkdown)
 require(mbstructure)
 require(rerf)
 require(mclust)
+require(meda)
 require(raster)
 require(irlba)
+require(viridis)
+require(dendextend)
 set.seed(16661)
 rmarkdown::render("flyData.Rmd")
 system('open flyData.html')
@@ -46,9 +48,14 @@ system('open flyData.html')
 ```{r, eval = FALSE}
 require(devtools)
 devtools::install_github("youngser/mbstructure")
-data(MBconnectome)
 ```
 
+
+## Data Preparation 
+
+```{r}
+data(MBconnectome)
+```
 
 ## Download data
 
@@ -69,44 +76,61 @@ X <- as.matrix(rightA)
 Xb <- X
 Xb[which(Xb > 0)] <- 1
 
-Xase <- irlba(Xb, nv = 6)
+Xase <- irlba(Xb, nv = 5)
 
-XX <- cbind(Xase$u / Xase$d, Xase$v / Xase$d)
+Xl <- Xase$u
+Xr <- Xase$v
+
+Xls <- Xase$u / Xase$d
+Xrs <- Xase$v / Xase$d
+
+XX <- cbind(Xl, Xr)
+XXs <- cbind(Xls, Xrs)
 
 dim(XX)
 ```
 
 ## Run Urerf
 
+NB: URerF by default normalizes the data before running.  This seems to
+"smooth" the output matrices.
+
 ```{r, results = "hide"}
-urerf.fit <- Urerf(XX, trees = 500)
+XX.fit  <- Urerf(XX, trees = 500, normalizeData = TRUE)
+XXs.fit <- Urerf(XX, trees = 500, normalizeData = TRUE)
+
+simM <- XX.fit$sim
+dsimM <- 1 - simM
+```
+
+## Plot Affinity Matrices
+```{r}
+plot(raster(simM), col = viridis(255), main = "Similarity")
+plot(raster(dsimM), col = viridis(255), main = "Dissimilarity")
 ```
 
 
-## Get Similarity Matrix
-
 ```{r}
-simM <- urerf.fit$sim
-#write.table(file = "similarityMatrix.csv", simM, row.names = FALSE, col.names = FALSE, sep = ",")
+write.table(file = "similarityMatrix.csv", simM, row.names = FALSE, col.names = FALSE, sep = ",")
+write.table(file = "dissimilarityMatrix.csv", 1 - simM, row.names = FALSE, col.names = FALSE, sep = ",")
 ```
 
 ##  Embed the similarity
 
 ```{r}
-Y <- irlba(simM, nv = 5)
-dim(Y$u)
-dim(Y$v)
+Y <- irlba(simM, nv = 4)
 ```
 
 ```{r}
-pairs(Y$u, col = viridis(4)[as.numeric(rightLabels[[1]])], 
-      main = "True labels", pch = 19, cex = 0.5)
+pairs(Y$u, col = scales::alpha(viridis(4)[as.numeric(rightLabels[[1]])], 0.55), pch = 16, cex = 0.75)
 ```
+
+# Mclust
 
 ## Fit Mclust
 
 ```{r, results = "hide"}
-m.fit <-  Mclust(cbind(Y$u))
+m.fit <-  Mclust(Y$u)
 ```
 
 ## Plot Mclust BIC and Classifications
@@ -121,7 +145,6 @@ plot(m.fit, what = c("classification"))
 ```{r ari}
 mclust::adjustedRandIndex(rightLabels[[1]], m.fit$classification)
 ```
-
 
 ## Permutation test
 
@@ -141,6 +164,57 @@ for(i in 1:mi){
 plot(histogram(ARI, bin = "Scott", main = "Permutation test of null-distribution"))
 ```
 
+
+# Hclust
+
+```{r}
+Ydist <- as.dist(dsimM)
+h.fit <- hclust(Ydist, method = "average")
+
+plot(h.fit)
+plot(as.dendrogram(h.fit))
+
+hclust.labels4 <- cutree(h.fit, k = 4)
+hclust.labels5 <- cutree(h.fit, k = 5)
+hclust.labels6 <- cutree(h.fit, k = 6)
+```
+
+## ARI
+
+```{r}
+mclust::adjustedRandIndex(rightLabels[[1]], hclust.labels4)
+mclust::adjustedRandIndex(rightLabels[[1]], hclust.labels5)
+mclust::adjustedRandIndex(rightLabels[[1]], hclust.labels6)
+```
+
+## Permutation test
+
+```{r permTest-hclust}
+mi <- 1e4
+ARIh <- vector("numeric", mi)
+
+for(i in 1:mi){
+  set.seed(i)
+  ARIh[i] <-  
+    mclust::adjustedRandIndex(rightLabels[[1]], 
+      sample(hclust.labels5, replace= FALSE))
+}
+```
+
+```{r}
+plot(histogram(ARIh, bin = "Scott", main = "Permutation test of null-distribution"))
+```
+
+```{r}
+dend5 <- as.dendrogram(h.fit)
+
+dend5 %>% set("labels", hclust.labels5) %>% 
+  color_branches(col = viridis(5)[hclust.labels5]) %>% 
+  sort %>%
+  plot()
+
+heatmap(as.matrix(Ydist), Rowv = dend5, labCol = hclust.labels5, labRow = hclust.labels5, col = viridis(255))
+```
 
 
 <!--
