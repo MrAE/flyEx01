@@ -76,7 +76,7 @@ X <- as.matrix(rightA)
 Xb <- X
 Xb[which(Xb > 0)] <- 1
 
-Xase <- irlba(Xb, nv = 5)
+Xase <- irlba(X, nv = 5)
 
 Xl <- Xase$u
 Xr <- Xase$v
@@ -99,17 +99,24 @@ NB: URerF by default normalizes the data before running.  This seems to
 XX.fit  <- Urerf(XX , trees = 500, min.parent = 7, normalizeData = TRUE)
 XXs.fit <- Urerf(XXs, trees = 500, min.parent = 7, normalizeData = TRUE)
 
-simM <- XX.fit$sim
-dsimM <- 1 - simM
+simMa <- XX.fit$sim
+dsimMa <- 1 - simMa
 
-simMs <- XXs.fit$sim
-dsimMs <- 1 - simMs
+simMb <- XXs.fit$sim
+dsimMb <- 1 - simMb
+
+### This is the one we use below
+simM <- simMa
+dsimM <- dsimMa
+
+simMs <- simMb
+dsimMs <- dsimMb
 ```
 
 ## Plot Affinity Matrices
 ```{r}
-plot(raster(simMs), col = viridis(255), main = "Similarity")
-plot(raster(dsimMs), col = viridis(255), main = "Dissimilarity")
+plot(raster(simM), col = viridis(255), main = "Similarity")
+plot(raster(dsimM), col = viridis(255), main = "Dissimilarity")
 ```
 
 
@@ -125,10 +132,12 @@ write.table(file = "dissimilarityMatrixScaledSingularVal.csv", 1 - simMs, row.na
 
 ```{r}
 Y <- irlba(simM, nv = 4)
+Ys <- irlba(simMs, nv = 4)
 ```
 
 ```{r}
 pairs(Y$u, col = scales::alpha(viridis(4)[as.numeric(rightLabels[[1]])], 0.55), pch = 16, cex = 0.75)
+pairs(Ys$u, col = scales::alpha(viridis(4)[as.numeric(rightLabels[[1]])], 0.55), pch = 16, cex = 0.75, main = "Scaled by singular values")
 ```
 
 # Mclust
@@ -137,19 +146,23 @@ pairs(Y$u, col = scales::alpha(viridis(4)[as.numeric(rightLabels[[1]])], 0.55), 
 
 ```{r, results = "hide"}
 m.fit <-  Mclust(Y$u)
+ms.fit <-  Mclust(Ys$u)
 ```
 
 ## Plot Mclust BIC and Classifications
 
 ```{r}
 plot(m.fit, what = c("BIC"))
+plot(ms.fit, what = c("BIC")); title( "Scaled by singular values")
 plot(m.fit, what = c("classification"))
+plot(ms.fit, what = c("classification")); title( "Scaled by singular values")
 ```
 
 ## ARI
 
 ```{r ari}
 mclust::adjustedRandIndex(rightLabels[[1]], m.fit$classification)
+mclust::adjustedRandIndex(rightLabels[[1]], ms.fit$classification)
 ```
 
 ## Permutation test
