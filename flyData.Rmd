@@ -123,6 +123,24 @@ mclust::adjustedRandIndex(rightLabels[[1]], m.fit$classification)
 ```
 
 
+## Permutation test
+
+```{r permTest}
+mi <- 1e4
+ARI <- vector("numeric", mi)
+
+for(i in 1:mi){
+  set.seed(i)
+  ARI[i] <-  
+    mclust::adjustedRandIndex(rightLabels[[1]], 
+      sample(m.fit$classification, replace= FALSE))
+}
+```
+
+```{r}
+plot(histogram(ARI, bin = "Scott", main = "Permutation test of null-distribution"))
+```
+
 
 
 <!--
