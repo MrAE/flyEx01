@@ -29,11 +29,11 @@ knitr::opts_chunk$set(dev = "png")
 
 ```{r render, eval=FALSE, echo=FALSE}
 ## You can build this notebook by running this code block.
+source("https://raw.githubusercontent.com/neurodata/meda/master/R/getElbows.R")
 require(rmarkdown)
 require(mbstructure)
 require(rerf)
 require(mclust)
-require(meda)
 require(raster)
 require(irlba)
 set.seed(16661)
@@ -46,14 +46,9 @@ system('open flyData.html')
 ```{r, eval = FALSE}
 require(devtools)
 devtools::install_github("youngser/mbstructure")
-```
-
-
-## Data Preparation 
-
-```{r}
 data(MBconnectome)
 ```
+
 
 ## Download data
 
@@ -74,13 +69,9 @@ X <- as.matrix(rightA)
 Xb <- X
 Xb[which(Xb > 0)] <- 1
 
-GR <- graph_from_adjacency_matrix((Xb))
-Xr <- embed_adjacency_matrix(GR, no = 5)$X
+Xase <- irlba(Xb, nv = 6)
 
-GL <- graph_from_adjacency_matrix((t(Xb)))
-Xl <- embed_adjacency_matrix(GL, no = 5)$X
-
-XX <- cbind(Xl, Xr)
+XX <- cbind(Xase$u / Xase$d, Xase$v / Xase$d)
 
 dim(XX)
 ```
@@ -96,24 +87,26 @@ urerf.fit <- Urerf(XX, trees = 500)
 
 ```{r}
 simM <- urerf.fit$sim
-write.table(file = "similarityMatrix.csv", simM, row.names = FALSE, col.names = FALSE, sep = ",")
+#write.table(file = "similarityMatrix.csv", simM, row.names = FALSE, col.names = FALSE, sep = ",")
 ```
 
 ##  Embed the similarity
 
 ```{r}
-Y <- irlba(simM, nu = 4)
+Y <- irlba(simM, nv = 5)
+dim(Y$u)
+dim(Y$v)
 ```
 
 ```{r}
-pairs(Y$u)
-pairs(Y$v)
+pairs(Y$u, col = viridis(4)[as.numeric(rightLabels[[1]])], 
+      main = "True labels", pch = 19, cex = 0.5)
 ```
 
 ## Fit Mclust
 
 ```{r, results = "hide"}
-m.fit <-  Mclust(Y$u)
+m.fit <-  Mclust(cbind(Y$u))
 ```
 
 ## Plot Mclust BIC and Classifications
