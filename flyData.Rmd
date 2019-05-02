@@ -96,23 +96,29 @@ NB: URerF by default normalizes the data before running.  This seems to
 "smooth" the output matrices.
 
 ```{r, results = "hide"}
-XX.fit  <- Urerf(XX, trees = 500, normalizeData = TRUE)
-XXs.fit <- Urerf(XX, trees = 500, normalizeData = TRUE)
+XX.fit  <- Urerf(XX , trees = 500, min.parent = 7, normalizeData = TRUE)
+XXs.fit <- Urerf(XXs, trees = 500, min.parent = 7, normalizeData = TRUE)
 
 simM <- XX.fit$sim
 dsimM <- 1 - simM
+
+simMs <- XXs.fit$sim
+dsimMs <- 1 - simMs
 ```
 
 ## Plot Affinity Matrices
 ```{r}
-plot(raster(simM), col = viridis(255), main = "Similarity")
-plot(raster(dsimM), col = viridis(255), main = "Dissimilarity")
+plot(raster(simMs), col = viridis(255), main = "Similarity")
+plot(raster(dsimMs), col = viridis(255), main = "Dissimilarity")
 ```
 
 
 ```{r}
 write.table(file = "similarityMatrix.csv", simM, row.names = FALSE, col.names = FALSE, sep = ",")
 write.table(file = "dissimilarityMatrix.csv", 1 - simM, row.names = FALSE, col.names = FALSE, sep = ",")
+
+write.table(file = "similarityMatrixScaledSingularVal.csv", simMs, row.names = FALSE, col.names = FALSE, sep = ",")
+write.table(file = "dissimilarityMatrixScaledSingularVal.csv", 1 - simMs, row.names = FALSE, col.names = FALSE, sep = ",")
 ```
 
 ##  Embed the similarity
